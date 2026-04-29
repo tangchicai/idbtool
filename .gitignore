@@ -1,0 +1,48 @@
+# Binaries
+bin/
+dist/
+build/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Coverage
+*.cover
+coverage.out
+
+# Vendor
+vendor/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Env files
+.env
+.env.*
+
+# Temporary files
+tmp/
+temp/
+
+# Go workspace
+go.work.sum
+
+# Project specific
+# add your own runtime/generated files here
