@@ -33,7 +33,7 @@
 - 目标 LevelDB 目录可访问
 ## 安装
 ```bash
-git clone https://github.com/yourname/indexeddb-leveldb-tool.git
+git clone https://github.com/tangchicai/idbtool.git
 cd indexeddb-leveldb-tool
 go mod tidy
 go build -o idbtool
