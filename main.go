@@ -10,6 +10,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
@@ -51,38 +52,40 @@ func askRetry(got string) bool {
 		if input == "N" {
 			return false
 		}
-
 		fmt.Print("Please input Y or N: ")
 	}
 }
 
-func openDBWithPrompt(dbPath string) (*leveldb.DB, error) {
-	// 先用一个默认 comparer 尝试
-	initialComparer := newDynamicComparer("default")
+func extractGotComparer(err error) string {
+	re := regexp.MustCompile(`got[: ]+([^\s]+)`)
+	m := re.FindStringSubmatch(err.Error())
+	if len(m) >= 2 {
+		return m[1]
+	}
+	return ""
+}
+
+func openDBWithAutoRetry(dbPath string) (*leveldb.DB, error) {
+	// 第一次先用一个默认 comparer 打开
 	db, err := leveldb.OpenFile(dbPath, &opt.Options{
-		Comparer: initialComparer,
+		Comparer: newDynamicComparer("default"),
 	})
 	if err == nil {
 		return db, nil
 	}
 
-	// 从错误中提取 got comparer
-	re := regexp.MustCompile(`got '([^']+)'`)
-	m := re.FindStringSubmatch(err.Error())
-	if len(m) < 2 {
+	got := extractGotComparer(err)
+	if got == "" {
 		return nil, err
 	}
 
-	gotComparer := m[1]
-
-	// 询问是否重试
-	if !askRetry(gotComparer) {
+	if !askRetry(got) {
 		return nil, err
 	}
 
-	// 动态创建 comparer 再次打开
+	// 使用 got comparer 再次打开
 	db, err = leveldb.OpenFile(dbPath, &opt.Options{
-		Comparer: newDynamicComparer(gotComparer),
+		Comparer: newDynamicComparer(got),
 	})
 	if err != nil {
 		return nil, err
@@ -91,9 +94,49 @@ func openDBWithPrompt(dbPath string) (*leveldb.DB, error) {
 	return db, nil
 }
 
+func printKV(key, value []byte) {
+	fmt.Printf("key=%q  value=%x\n", key, value)
+}
+
+func scanAll(db *leveldb.DB) error {
+	iter := db.NewIterator(nil, nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		printKV(iter.Key(), iter.Value())
+	}
+	return iter.Error()
+}
+
+func scanPrefix(db *leveldb.DB, prefix string) error {
+	iter := db.NewIterator(nil, nil)
+	defer iter.Release()
+
+	p := []byte(prefix)
+	for iter.Seek(p); iter.Valid(); iter.Next() {
+		k := iter.Key()
+		if !strings.HasPrefix(string(k), prefix) {
+			break
+		}
+		printKV(k, iter.Value())
+	}
+	return iter.Error()
+}
+
+func searchKey(db *leveldb.DB, key string) error {
+	val, err := db.Get([]byte(key), nil)
+	if err != nil {
+		return err
+	}
+	printKV([]byte(key), val)
+	return nil
+}
+
 func main() {
 	dbPath := flag.String("db", "", "leveldb path")
 	search := flag.String("search", "", "search key")
+	prefix := flag.String("prefix", "", "prefix search")
+	scan := flag.Bool("scan", false, "scan all keys")
 	flag.Parse()
 
 	if *dbPath == "" {
@@ -101,7 +144,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := openDBWithPrompt(*dbPath)
+	db, err := openDBWithAutoRetry(*dbPath)
 	if err != nil {
 		fmt.Println("Open DB error:", err)
 		os.Exit(1)
@@ -110,12 +153,23 @@ func main() {
 
 	fmt.Println("DB opened successfully")
 
-	if *search != "" {
-		val, err := db.Get([]byte(*search), nil)
+	switch {
+	case *search != "":
+		err := searchKey(db, *search)
 		if err != nil {
 			fmt.Println("search error:", err)
-			return
 		}
-		fmt.Printf("value: %x\n", val)
+	case *prefix != "":
+		err := scanPrefix(db, *prefix)
+		if err != nil {
+			fmt.Println("prefix scan error:", err)
+		}
+	case *scan:
+		err := scanAll(db)
+		if err != nil {
+			fmt.Println("scan error:", err)
+		}
+	default:
+		fmt.Println("No action specified. Use -search, -prefix or -scan")
 	}
 }
