@@ -1,6 +1,6 @@
 module idbtool
 
-go 1.26.2
+go 1.23
 
 require github.com/syndtr/goleveldb v1.0.0
 
