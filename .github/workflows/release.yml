@@ -4,37 +4,38 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
+  artifact-metadata: write
+  attestations: write
   contents: write
+  id-token: write
 
 jobs:
-  release:
+  Release:
     name: Release
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: stable
 
       - name: Build
         run: |
-          mkdir -p \
-            package-linux-glibc-x86-64-v2 \
-            package-linux-glibc-x86-64-v3 \
-            package-linux-x86-64-v2 \
-            package-linux-x86-64-v3 \
-            package-linux-arm64 \
-            package-windows-x86-64-v2 \
-            package-windows-x86-64-v3 \
-            package-windows-arm64 \
-            package-macos-x86-64-v3 \
-            package-macos-arm64
+          mkdir package-linux-glibc-x86-64-v2 \
+                package-linux-glibc-x86-64-v3 \
+                package-linux-x86-64-v2 \
+                package-linux-x86-64-v3 \
+                package-linux-arm64 \
+                package-windows-x86-64-v2 \
+                package-windows-x86-64-v3 \
+                package-windows-arm64 \
+                package-macos-x86-64-v3 \
+                package-macos-arm64 \ 
 
           env GOAMD64=v2 CGO_ENABLED=1 go build -v -trimpath -ldflags '-s -w' -o package-linux-glibc-x86-64-v2/idbtool .
           env GOAMD64=v3 CGO_ENABLED=1 go build -v -trimpath -ldflags '-s -w' -o package-linux-glibc-x86-64-v3/idbtool .
